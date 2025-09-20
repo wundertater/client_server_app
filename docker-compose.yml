@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: myuser        # имя пользователя
+      POSTGRES_PASSWORD: mypassword # пароль
+      POSTGRES_DB: mydatabase       # имя базы
+    ports:
+      - "5433:5432"   # пробрасываем порт: хост:контейнер
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # сохраняем данные в томе
+
+volumes:
+  postgres_data:

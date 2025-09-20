@@ -1,40 +1,15 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI
+
+from server.src.api.instructor.router import instructors_route
+from server.src.api.students.router import students_route
 
 app = FastAPI()
 
 
-@app.get('/')
-async def root(request: Request):
-    return RedirectResponse(f'{request.url}docs')
+@app.get("/")
+def home_page():
+    return {"message": "tmp"}
 
 
-@app.get('/students')
-async def get_students():
-    # фильтр
-    # кафедра, группы, имя, фамилия
-    ...
-
-
-@app.get('/instructors')
-async def get_instructors():
-    # фильтр
-    # кафедра, группы, имя, фамилия
-    ...
-
-
-@app.post('/invite_student')
-async def invite_student():
-    ...
-
-
-@app.post('/invite_instructor')
-async def invite_instructor():
-    ...
-
-
-@app.delete('delete_student')
-async def delete_student():
-    ...
-
-
+app.include_router(students_route)
+app.include_router(instructors_route)
