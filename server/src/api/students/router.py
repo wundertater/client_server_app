@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from server.src.api.students.dao import StudentDAO
 from server.src.api.students.schema import FilterStudents, SStudent, SStudentUpd
 from server.src.dao.services import is_department_available
-from server.src.database import get_async_session
+from server.src.database import get_async_session, get_sync_session
 from server.src.dao.services import balancer
 
 
@@ -41,6 +41,7 @@ async def get_student_by_id(
 async def add_student(
         student: SStudent,
         background_tasks: BackgroundTasks,
+        sync_session = Depends(get_sync_session),
         session: AsyncSession = Depends(get_async_session),
 ) -> dict:
     if not await is_department_available(session, student.department_id):
@@ -48,7 +49,7 @@ async def add_student(
 
     added = await StudentDAO.add(session, **student.model_dump())
     if added:
-        # background_tasks.add_task(balancer.add_to_group, added)
+        background_tasks.add_task(balancer.add_to_group, added.id, sync_session)
         return {"message": "Студент успешно добавлен!", "student": student}
     else:
         return {"message": "Ошибка при добавлении студента!"}

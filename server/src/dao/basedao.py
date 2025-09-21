@@ -23,6 +23,7 @@ class BaseDAO:
     async def add(cls, session: AsyncSession, **values):
         new_instance = cls.model(**values)
         session.add(new_instance)
+        await session.flush()
         await session.commit()
         return new_instance
 

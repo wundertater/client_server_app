@@ -1,6 +1,8 @@
 """Файл с балансирующей функцией и дополнительной логикой для crud"""
 from server.src.api.instructor.dao import InstructorDAO
+from server.src.api.students.dao import StudentDAO
 from server.src.database import get_sync_db_url
+from sqlalchemy.future import select
 
 
 async def is_department_available(session, department_id) -> bool:
@@ -14,8 +16,9 @@ async def is_department_available(session, department_id) -> bool:
 class Balancer:
     MAX_STUDENTS_IN_GROUP = 10
 
-    def add_to_group(self, student):
-        student.group_id = 1
+    def add_to_group(self, student_id, sync_session):
+        print("-------adding to group")
+        StudentDAO.sync_update_by_id(sync_session, student_id, {"group_id": 1})
 
     def balance(self):
         pass

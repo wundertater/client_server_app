@@ -13,7 +13,7 @@ class Student(Base):
     birth_date: Mapped[date]
     enroll_date: Mapped[date] = mapped_column(Date, default=date.today(), server_default=func.current_date())
     photo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
-    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"))
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), nullable=True)
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"))
 
     group: Mapped["Group"] = relationship("Group", back_populates="students")

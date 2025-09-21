@@ -10,7 +10,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from server.src.database import DATABASE_URL, Base
+from server.src.database import DATABASE_URL_ASYNC, Base
 from server.src.models.department import Department
 from server.src.models.group import Group
 from server.src.models.student import Student
@@ -23,7 +23,7 @@ from server.src.models.assosiation_tables import StudentSubjectTable
 # access to the values within the .ini file in use.
 config = context.config
 
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+config.set_main_option("sqlalchemy.url", DATABASE_URL_ASYNC)
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:

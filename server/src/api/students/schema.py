@@ -15,7 +15,6 @@ class SStudent(BaseModel):
     first_name: str
     birth_date: date
     department_id: int
-    group_id: int | None = None
     photo: bytes | None = None
 
 
