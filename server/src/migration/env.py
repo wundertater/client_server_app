@@ -16,8 +16,8 @@ from server.src.models.group import Group
 from server.src.models.student import Student
 from server.src.models.instructor import Instructor
 from server.src.models.subject import Subject
-from server.src.models.assosiation_tables import GroupSubjectTable
-from server.src.models.assosiation_tables import StudentSubjectTable
+from server.src.models.group_subject import GroupSubjectTable
+from server.src.models.student_subject import StudentSubject
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

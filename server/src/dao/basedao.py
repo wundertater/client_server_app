@@ -24,7 +24,6 @@ class BaseDAO:
         new_instance = cls.model(**values)
         session.add(new_instance)
         await session.flush()
-        await session.commit()
         return new_instance
 
     @classmethod
@@ -35,25 +34,22 @@ class BaseDAO:
             .values(**values)
             .execution_options(synchronize_session="fetch")
         )
-        try:
-            async with session.begin():
-                result = await session.execute(stmt)
+        result = await session.execute(stmt)
 
-                if result.rowcount == 0:
-                    return None
+        if result.rowcount == 0:
+            return None
 
-                refreshed = await session.execute(select(cls.model).where(cls.model.id == obj_id))
-                return refreshed.scalar_one()
-
-        except SQLAlchemyError as e:
-            raise e
+        refreshed = await session.execute(select(cls.model).where(cls.model.id == obj_id))
+        return refreshed.scalar_one()
 
     @classmethod
     async def delete_by_id(cls, session: AsyncSession, obj_id: int):
         stmt = sqlalchemy_delete(cls.model).where(cls.model.id == obj_id).execution_options(synchronize_session="fetch")
-        try:
-            async with session.begin():
-                result = await session.execute(stmt)
-            return result
-        except SQLAlchemyError as e:
-            raise e
+        result = await session.execute(stmt)
+        return result
+
+    @classmethod
+    def sync_find_all_id_in_dep(cls, session, department_id):
+        query = select(cls.model.id).where(cls.model.department_id == department_id)
+        result = session.execute(query)
+        return result.scalars().all()

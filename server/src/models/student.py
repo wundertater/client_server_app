@@ -18,3 +18,9 @@ class Student(Base):
 
     group: Mapped["Group"] = relationship("Group", back_populates="students")
     department: Mapped["Department"] = relationship("Department", back_populates="students")
+    student_subjects: Mapped[list["StudentSubject"]] = relationship(
+        "StudentSubject", back_populates="student", cascade="all, delete-orphan"
+    )
+    subjects: Mapped[list["Subject"]] = relationship(
+        "Subject", secondary="student_subject_table", back_populates="students"
+    )

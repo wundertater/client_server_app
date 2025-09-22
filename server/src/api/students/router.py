@@ -4,11 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.src.api.students.dao import StudentDAO
-from server.src.api.students.schema import FilterStudents, SStudent, SStudentUpd
+from server.src.api.students.schema import FilterStudents, StudentRead, SStudentUpd, SStudent
 from server.src.dao.services import is_department_available
 from server.src.database import get_async_session, get_sync_session
 from server.src.dao.services import balancer
-
 
 students_route = APIRouter(prefix="/students")
 
@@ -24,7 +23,7 @@ async def get_students(
 
 # TODO проверить что returnится
 
-@students_route.get("/{student_id}", summary="Получить одного студента по id")
+@students_route.get("/{student_id}", summary="Получить одного студента по id", response_model=StudentRead)
 async def get_student_by_id(
         student_id: int,
         session: AsyncSession = Depends(get_async_session)
@@ -41,18 +40,18 @@ async def get_student_by_id(
 async def add_student(
         student: SStudent,
         background_tasks: BackgroundTasks,
-        sync_session = Depends(get_sync_session),
+        sync_session=Depends(get_sync_session),
         session: AsyncSession = Depends(get_async_session),
 ) -> dict:
-    if not await is_department_available(session, student.department_id):
-        return {"message": "Нельзя зачислять студента на кафедру без преподавателей"}
-
-    added = await StudentDAO.add(session, **student.model_dump())
-    if added:
-        background_tasks.add_task(balancer.add_to_group, added.id, sync_session)
-        return {"message": "Студент успешно добавлен!", "student": student}
-    else:
-        return {"message": "Ошибка при добавлении студента!"}
+    async with session.begin():
+        if not await is_department_available(session, student.department_id):
+            return {"message": "Нельзя зачислять студента на кафедру без преподавателей"}
+        added = await StudentDAO.add(session, **student.model_dump())
+        if added:
+            # background_tasks.add_task(balancer.balance, sync_session, added.department_id)
+            return {"message": "Студент успешно добавлен!", "student": student}
+        else:
+            return {"message": "Ошибка при добавлении студента!"}
 
 
 @students_route.put("/{student_id}/update")
@@ -61,19 +60,33 @@ async def update_student(
         upd_data: SStudentUpd,
         session: AsyncSession = Depends(get_async_session)
 ):
-    if upd_data.department_id and not is_department_available(session, upd_data.department_id):
-        return {"message:": "Нельзя зачислять студента на кафедру без преподавателей"}
-    updated = await StudentDAO.update_by_id(session, student_id, upd_data.model_dump(exclude_none=True))
-    if updated:
-        return {"message": "Данные студента успешно обновлены!", "student": updated}
-    else:
-        # raise HTTP
-        return {"message": "Ошибка при обновлении данных студента!"}
+    async with session.begin():
+        if upd_data.department_id and not await is_department_available(session, upd_data.department_id):
+            return {"message": "Нельзя зачислять студента на кафедру без преподавателей"}
+
+        # 1) Обновляем поля студента
+        student_values = upd_data.model_dump(exclude_none=True)
+        marks = student_values.pop("marks", None)  # достаём marks, чтобы обновлять отдельно
+
+        updated = None
+        if student_values:  # если есть обычные поля
+            updated = await StudentDAO.update_by_id(session, student_id, student_values)
+
+        # 2) Обновляем оценки, если переданы
+        if marks:
+            await StudentDAO.update_marks(session, student_id, marks)
+            updated = True
+
+        if updated:
+            return {"message": "Данные студента успешно обновлены!", "student": updated}
+        else:
+            return {"message": "Ошибка при обновлении данных студента!"}
 
 
 @students_route.delete("/{student_id}/delete")
 async def delete_student(student_id: int, session: AsyncSession = Depends(get_async_session)):
-    deleted = await StudentDAO.delete_by_id(session, student_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Ошибка при отчислении")
-    return {"message": "Студент отчислен"}
+    async with session.begin():
+        deleted = await StudentDAO.delete_by_id(session, student_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Ошибка при отчислении")
+        return {"message": "Студент отчислен"}

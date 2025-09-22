@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from server.src.api.instructor.router import instructors_route
+from server.src.api.instructors.router import instructors_route
 from server.src.api.students.router import students_route
 
 app = FastAPI()

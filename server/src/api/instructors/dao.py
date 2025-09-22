@@ -1,4 +1,4 @@
-"""Файл data access object, содержит методы получения данных из бд для instructor"""
+"""Файл data access object, содержит методы получения данных из бд для instructors"""
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload, load_only
@@ -35,9 +35,3 @@ class InstructorDAO(BaseDAO):
 
         result = await session.execute(query)
         return result.scalars().unique().all()
-
-    @classmethod
-    def sync_find_all_in_dep(cls, session, department_id):
-        query = select(cls.model.id).where(cls.model.department_id == department_id)
-        result = session.execute(query)
-        return result.scalars().all()

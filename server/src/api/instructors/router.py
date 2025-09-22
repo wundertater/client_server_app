@@ -1,11 +1,12 @@
-"""Файл содержит endpoints относящиеся к instructor"""
+"""Файл содержит endpoints относящиеся к instructors"""
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.src.api.instructor.dao import InstructorDAO
-from server.src.api.instructor.schema import (
+from server.src.dao.services import is_last_available_instructor
+from server.src.api.instructors.dao import InstructorDAO
+from server.src.api.instructors.schema import (
     FilterInstructors,
     SInstructor,
     SInstructorsOut,
@@ -51,23 +52,28 @@ async def add_instructor(
         instructor: SInstructor,
         session: AsyncSession = Depends(get_async_session)
 ) -> dict:
-    added = await InstructorDAO.add(session, **instructor.model_dump())
-    if added:
-        return {"message": "Инструктор успешно добавлен!", "instructor": instructor}
-    else:
-        return {"message": "Ошибка при добавлении инструктора!"}
+    async with session.begin():
+        added = await InstructorDAO.add(session, **instructor.model_dump())
+        if added:
+            return {"message": "Инструктор успешно добавлен!", "instructors": instructor}
+        else:
+            return {"message": "Ошибка при добавлении инструктора!"}
 
 
 @instructors_route.put("/{instructor_id}/update")
 async def update_instructor(
-        instructor_id: int, upd_data: SInstructorUpd,
+        instructor_id: int,
+        upd_data: SInstructorUpd,
         session: AsyncSession = Depends(get_async_session)
 ):
-    updated = await InstructorDAO.update_by_id(session, instructor_id, upd_data.model_dump(exclude_none=True))
-    if updated:
-        return {"message": "Данные инструктора успешно обновлены!", "instructor": updated}
-    else:
-        return {"message": "Ошибка при обновлении данных инструктора!"}
+    async with session.begin():
+        if upd_data.department_id and await is_last_available_instructor(session, instructor_id):
+            return {"message": "Нельзя переводить последнего инструктора пока на кафедре числятся студенты"}
+        updated = await InstructorDAO.update_by_id(session, instructor_id, upd_data.model_dump(exclude_none=True))
+        if updated:
+            return {"message": "Данные инструктора успешно обновлены!", "instructors": updated}
+        else:
+            return {"message": "Ошибка при обновлении данных инструктора!"}
 
 
 @instructors_route.delete("/{instructor_id}/delete")
@@ -75,7 +81,10 @@ async def delete_instructor(
         instructor_id: int,
         session: AsyncSession = Depends(get_async_session)
 ):
-    deleted = await InstructorDAO.delete_by_id(session, instructor_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Ошибка при увольнении")
-    return {"message": "Инструктор уволен"}
+    async with session.begin():
+        if await is_last_available_instructor(session, instructor_id):
+            return {"message": "Нельзя увольнять последнего инструктора пока на кафедре числятся студенты"}
+        deleted = await InstructorDAO.delete_by_id(session, instructor_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Ошибка при увольнении")
+        return {"message": "Инструктор уволен"}
