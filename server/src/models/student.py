@@ -13,14 +13,13 @@ class Student(Base):
     birth_date: Mapped[date]
     enroll_date: Mapped[date] = mapped_column(Date, default=date.today(), server_default=func.current_date())
     photo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
-    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"), nullable=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id", ondelete="SET NULL"), nullable=True)
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"))
 
     group: Mapped["Group"] = relationship("Group", back_populates="students")
     department: Mapped["Department"] = relationship("Department", back_populates="students")
     student_subjects: Mapped[list["StudentSubject"]] = relationship(
-        "StudentSubject", back_populates="student", cascade="all, delete-orphan"
-    )
-    subjects: Mapped[list["Subject"]] = relationship(
-        "Subject", secondary="student_subject_table", back_populates="students"
+        "StudentSubject",
+        back_populates="student",
+        cascade="all, delete-orphan"
     )

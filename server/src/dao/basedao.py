@@ -2,6 +2,7 @@ from sqlalchemy import delete as sqlalchemy_delete, update as sqlalchemy_update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import load_only
 
 
 class BaseDAO:
@@ -49,7 +50,20 @@ class BaseDAO:
         return result
 
     @classmethod
-    def sync_find_all_id_in_dep(cls, session, department_id):
-        query = select(cls.model.id).where(cls.model.department_id == department_id)
-        result = session.execute(query)
+    def sync_find_all_in_dep(cls, sync_session, department_id):
+        query = select(cls.model).where(cls.model.department_id == department_id)
+        result = sync_session.execute(query)
         return result.scalars().all()
+
+    @classmethod
+    def sync_add(cls, sync_session, **values):
+        new_instance = cls.model(**values)
+        sync_session.add(new_instance)
+        sync_session.flush()
+        return new_instance
+
+    @classmethod
+    def sync_delete_by_id(cls, session, obj_id: int):
+        stmt = sqlalchemy_delete(cls.model).where(cls.model.id == obj_id).execution_options(synchronize_session="fetch")
+        result = session.execute(stmt)
+        return result

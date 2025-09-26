@@ -6,7 +6,7 @@ from server.src.database import Base
 
 class Group(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
-    instructor_id: Mapped[int] = mapped_column(ForeignKey("instructors.id"))
+    instructor_id: Mapped[int] = mapped_column(ForeignKey("instructors.id", ondelete="SET NULL"), nullable=True)
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"))
 
     instructor: Mapped["Instructor"] = relationship("Instructor", back_populates="groups")

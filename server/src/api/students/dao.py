@@ -7,6 +7,7 @@ from server.src.models.student import Student
 from server.src.models.student_subject import StudentSubject
 from server.src.models.subject import Subject
 
+
 class StudentDAO(BaseDAO):
     model = Student
 
@@ -80,22 +81,3 @@ class StudentDAO(BaseDAO):
             )
             await session.execute(stmt)
         await session.flush()
-
-    @classmethod
-    def sync_update_by_id(cls, session, obj_id: int, values: dict):
-        stmt = (
-            sqlalchemy_update(cls.model)
-            .where(cls.model.id == obj_id)
-            .values(**values)
-            .execution_options(synchronize_session="fetch")
-        )
-        try:
-            with session.begin():
-                result = session.execute(stmt)
-
-                if result.rowcount == 0:
-                    return None
-
-                return None
-        except Exception as e:
-            raise e
