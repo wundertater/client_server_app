@@ -58,6 +58,11 @@ async def update_student(
         session: AsyncSession = Depends(get_async_session)
 ):
     async with session.begin():
+        student = await StudentDAO.find_one_or_none_by_id(session, student_id)
+        if not student:
+            raise HTTPException(status_code=404, detail="Такого студента нет")
+        department_id = student.department_id
+
         if upd_data.department_id and not await is_department_available(session, upd_data.department_id):
             return {"message": "Нельзя зачислять студента на кафедру без преподавателей"}
 
@@ -76,7 +81,9 @@ async def update_student(
 
         if updated:
             if upd_data.department_id:
+                # Балансируем новый департамент и прошлый
                 background_tasks.add_task(balancer.balance, sync_session, upd_data.department_id)
+                background_tasks.add_task(balancer.balance, sync_session, department_id)
             return {"message": "Данные студента успешно обновлены!", "student": updated}
         else:
             return {"message": "Ошибка при обновлении данных студента!"}
