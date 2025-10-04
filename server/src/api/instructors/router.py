@@ -76,8 +76,9 @@ async def update_instructor(
         if not instructor:
             raise HTTPException(status_code=404, detail="Такого инструктора нет")
         department_id = instructor.department_id
-        if upd_data.department_id and await is_last_available_instructor(session, department_id):
-            return {"message": "Нельзя переводить последнего инструктора пока на кафедре числятся студенты"}
+        if upd_data.department_id:
+            if upd_data.department_id != department_id and await is_last_available_instructor(session, department_id):
+                return {"message": "Нельзя переводить последнего инструктора пока на кафедре числятся студенты"}
         updated = await InstructorDAO.update_by_id(session, instructor_id, upd_data.model_dump(exclude_none=True))
         if updated:
             if upd_data.department_id:
