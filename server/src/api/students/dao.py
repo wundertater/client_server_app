@@ -1,7 +1,8 @@
+from sqlalchemy import update as sqlalchemy_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
-from sqlalchemy import update as sqlalchemy_update
+
 from server.src.dao.basedao import BaseDAO
 from server.src.models.student import Student
 from server.src.models.student_subject import StudentSubject

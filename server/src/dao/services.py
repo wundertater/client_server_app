@@ -1,9 +1,9 @@
 """Файл с балансирующей функцией и дополнительной логикой для crud"""
+from math import ceil
+
+from server.src.api.groups.dao import GroupDAO
 from server.src.api.instructors.dao import InstructorDAO
 from server.src.api.students.dao import StudentDAO
-from server.src.api.groups.dao import GroupDAO
-from math import ceil
-from fastapi import HTTPException
 
 
 async def is_department_available(session, department_id: int) -> bool:
@@ -37,7 +37,7 @@ class Balancer:
     def balance(self, sync_session, department_id: int) -> None:
         with sync_session.begin():
             instructors, students, groups = self._fetch_data(sync_session, department_id)
-            if not students:
+            if not students:  # чтобы не делить на 0
                 return None
 
             group_num, mean_student_num_in_group, mean_group_num_per_instructor = self._get_group_distribution(

@@ -1,6 +1,6 @@
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, declared_attr, sessionmaker
-from sqlalchemy import create_engine
 
 from server.src.config import get_async_db_url, get_sync_db_url
 

@@ -12,5 +12,17 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data  # сохраняем данные в томе
 
+  client:
+    build:
+      context: ./client
+    container_name: vue_client
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    stdin_open: true
+    tty: true
+
 volumes:
   postgres_data:

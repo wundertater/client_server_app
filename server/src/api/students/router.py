@@ -1,13 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.src.api.students.dao import StudentDAO
-from server.src.api.students.schema import FilterStudents, StudentRead, SStudentUpd, SStudent
-from server.src.dao.services import is_department_available
+from server.src.api.students.schema import FilterStudents, SStudent, SStudentUpd, StudentRead
+from server.src.dao.services import balancer, is_department_available
 from server.src.database import get_async_session, get_sync_session
-from server.src.dao.services import balancer
 
 students_route = APIRouter(prefix="/students")
 

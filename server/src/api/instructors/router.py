@@ -1,20 +1,19 @@
 """Файл содержит endpoints относящиеся к instructors"""
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.src.dao.services import is_last_available_instructor
 from server.src.api.instructors.dao import InstructorDAO
 from server.src.api.instructors.schema import (
     FilterInstructors,
+    SDepartmentOut,
     SInstructor,
     SInstructorsOut,
     SInstructorUpd,
-    SDepartmentOut
 )
+from server.src.dao.services import balancer, is_last_available_instructor
 from server.src.database import get_async_session, get_sync_session
-from server.src.dao.services import balancer
 
 instructors_route = APIRouter(prefix="/instructors")
 

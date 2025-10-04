@@ -1,16 +1,14 @@
 from sqlalchemy import delete as sqlalchemy_delete, update as sqlalchemy_update
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import load_only
 
 
 class BaseDAO:
     model = None
 
     @classmethod
-    async def find_all(cls, session: AsyncSession, filters: dict):
-        query = select(cls.model).filter_by(**filters)
+    async def find_all(cls, session: AsyncSession):
+        query = select(cls.model)
         result = await session.execute(query)
         return result.scalars().all()
 

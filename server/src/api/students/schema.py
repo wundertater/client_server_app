@@ -1,7 +1,7 @@
 from datetime import date
 
 from pydantic import BaseModel, Field
-from typing import Optional, Dict
+
 
 class FilterStudents(BaseModel):
     d: list[int] = Field([], description="departments")
@@ -24,7 +24,7 @@ class SStudentUpd(BaseModel):
     birth_date: date | None = None
     department_id: int | None = None
     photo: bytes | None = None
-    marks: Optional[Dict[int, Optional[int]]] = None  # {subject_id: mark}
+    marks: dict[int, int | None] | None = None  # {subject_id: mark}
 
 class SubjectBase(BaseModel):
     id: int
