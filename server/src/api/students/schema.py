@@ -18,6 +18,19 @@ class SStudent(BaseModel):
     photo: bytes | None = None
 
 
+class SDepartmentOut(BaseModel):
+    id: int
+    name: str
+
+
+class SStudentsOut(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    department: SDepartmentOut
+    group: int
+
+
 class SStudentUpd(BaseModel):
     last_name: str | None = None
     first_name: str | None = None
@@ -25,6 +38,7 @@ class SStudentUpd(BaseModel):
     department_id: int | None = None
     photo: bytes | None = None
     marks: dict[int, int | None] | None = None  # {subject_id: mark}
+
 
 class SubjectBase(BaseModel):
     id: int

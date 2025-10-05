@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from server.src.dao.services import websockets_manager
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.responses import RedirectResponse
 from server.src.api.instructors.router import instructors_route
 from server.src.api.students.router import students_route
 from server.src.api.departments.router import departments_route
@@ -22,9 +23,19 @@ app.add_middleware(
 )
 
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def home_page():
-    return {"message": "tmp"}
+    return RedirectResponse(url="/docs")
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websockets_manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        websockets_manager.disconnect(websocket)
 
 
 app.include_router(students_route)

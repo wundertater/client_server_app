@@ -1,12 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.src.api.students.dao import StudentDAO
 from server.src.api.students.schema import FilterStudents, SStudent, SStudentUpd, StudentRead
 from server.src.dao.services import balancer, is_department_available
 from server.src.database import get_async_session, get_sync_session
+from server.src.api.students.schema import SStudentsOut, SDepartmentOut
 
 students_route = APIRouter(prefix="/students")
 
@@ -16,7 +17,17 @@ async def get_students(
         filter_query: Annotated[FilterStudents, Query()],
         session: AsyncSession = Depends(get_async_session)
 ):
-    return await StudentDAO.find_all(session, filter_query.model_dump(exclude_none=True))
+    students_data = await StudentDAO.find_all(session, filter_query.model_dump(exclude_none=True))
+    return [
+        SStudentsOut(
+            id=student.id,
+            first_name=student.first_name,
+            last_name=student.last_name,
+            department=SDepartmentOut(id=student.department_id, name=student.department.name),
+            group=student.group_id
+        )
+        for student in students_data
+    ]
 
 
 @students_route.get("/{student_id}", summary="Получить одного студента по id", response_model=StudentRead)
@@ -39,13 +50,19 @@ async def add_student(
 ) -> dict:
     async with session.begin():
         if not await is_department_available(session, student.department_id):
-            return {"message": "Нельзя зачислять студента на кафедру без преподавателей"}
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Нельзя зачислять студента на кафедру без преподавателей"
+            )
         added = await StudentDAO.add(session, **student.model_dump())
         if added:
             background_tasks.add_task(balancer.balance, sync_session, added.department_id)
             return {"message": "Студент успешно добавлен!", "student": student}
         else:
-            return {"message": "Ошибка при добавлении студента!"}
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ошибка при добавлении студента"
+            )
 
 
 @students_route.put("/{student_id}/update")
@@ -61,9 +78,12 @@ async def update_student(
         if not student:
             raise HTTPException(status_code=404, detail="Такого студента нет")
         department_id = student.department_id
-
-        if upd_data.department_id and not await is_department_available(session, upd_data.department_id):
-            return {"message": "Нельзя зачислять студента на кафедру без преподавателей"}
+        if upd_data.department_id != department_id:
+            if not await is_department_available(session, upd_data.department_id):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Нельзя зачислять студента на кафедру без преподавателей"
+                )
 
         # 1) Обновляем поля студента
         student_values = upd_data.model_dump(exclude_none=True)
@@ -85,7 +105,10 @@ async def update_student(
                 background_tasks.add_task(balancer.balance, sync_session, department_id)
             return {"message": "Данные студента успешно обновлены!", "student": updated}
         else:
-            return {"message": "Ошибка при обновлении данных студента!"}
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ошибка при обновлении данных студента!"
+            )
 
 
 @students_route.delete("/{student_id}/delete")

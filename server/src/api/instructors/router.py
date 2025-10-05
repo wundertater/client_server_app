@@ -1,7 +1,7 @@
 """Файл содержит endpoints относящиеся к instructors"""
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.src.api.instructors.dao import InstructorDAO
@@ -40,7 +40,7 @@ async def get_instructors(
 async def get_instructor_by_id(
         instructor_id: int,
         session: AsyncSession = Depends(get_async_session)
-):  # -> SInstructorCard
+):
     instructor = await InstructorDAO.find_one_or_none_by_id(session, instructor_id)
     if not instructor:
         raise HTTPException(status_code=404, detail="Инструктор не найден")
@@ -60,7 +60,10 @@ async def add_instructor(
             background_tasks.add_task(balancer.balance, sync_session, added.department_id)
             return {"message": "Инструктор успешно добавлен!", "instructors": instructor}
         else:
-            return {"message": "Ошибка при добавлении инструктора!"}
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ошибка при добавлении инструктора!"
+            )
 
 
 @instructors_route.put("/{instructor_id}/update")
@@ -76,9 +79,13 @@ async def update_instructor(
         if not instructor:
             raise HTTPException(status_code=404, detail="Такого инструктора нет")
         department_id = instructor.department_id
-        if upd_data.department_id:
-            if upd_data.department_id != department_id and await is_last_available_instructor(session, department_id):
-                return {"message": "Нельзя переводить последнего инструктора пока на кафедре числятся студенты"}
+        if upd_data.department_id != department_id:
+            if await is_last_available_instructor(session, department_id):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Нельзя перевести последнего инструктора, пока на кафедре числятся студенты"
+                )
+
         updated = await InstructorDAO.update_by_id(session, instructor_id, upd_data.model_dump(exclude_none=True))
         if updated:
             if upd_data.department_id:
@@ -87,7 +94,10 @@ async def update_instructor(
                 background_tasks.add_task(balancer.balance, sync_session, upd_data.department_id)
             return {"message": "Данные инструктора успешно обновлены!", "instructors": updated}
         else:
-            return {"message": "Ошибка при обновлении данных инструктора!"}
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ошибка при обновлении данных инструктора!"
+            )
 
 
 @instructors_route.delete("/{instructor_id}/delete")
@@ -103,7 +113,10 @@ async def delete_instructor(
             raise HTTPException(status_code=404, detail="Такого инструктора нет")
         department_id = instructor.department_id
         if await is_last_available_instructor(session, department_id):
-            return {"message": "Нельзя увольнять последнего инструктора пока на кафедре числятся студенты"}
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Нельзя перевести последнего инструктора, пока на кафедре числятся студенты"
+            )
         deleted = await InstructorDAO.delete_by_id(session, instructor_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="Ошибка при увольнении")

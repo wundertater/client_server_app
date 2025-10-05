@@ -4,6 +4,7 @@ from math import ceil
 from server.src.api.groups.dao import GroupDAO
 from server.src.api.instructors.dao import InstructorDAO
 from server.src.api.students.dao import StudentDAO
+from fastapi import WebSocket
 
 
 async def is_department_available(session, department_id: int) -> bool:
@@ -21,6 +22,25 @@ async def is_last_available_instructor(session, department_id: int) -> bool:
     if len(all_instructors) < 2 and all_students:
         return True
     return False
+
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+
+websockets_manager = ConnectionManager()
 
 
 class Balancer:
@@ -53,6 +73,7 @@ class Balancer:
 
             self._balance_students(students, groups, mean_student_num_in_group)
             self._balance_instructors(instructors, groups, mean_group_num_per_instructor)
+            websockets_manager.broadcast("balance_done")
 
     @staticmethod
     def _balance_students(students, groups, mean_student_num_in_group):

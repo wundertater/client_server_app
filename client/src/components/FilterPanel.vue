@@ -102,6 +102,7 @@ const applyFilters = () => {
     groups: selectedGroups.value,
     ...filters.value,
   };
+  console.log(payload);
   emit("apply-filters", payload);
 };
 </script>
