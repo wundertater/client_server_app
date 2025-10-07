@@ -1,11 +1,5 @@
 <template>
   <div class="filter-panel">
-    <!-- Преподаватели -->
-    <div class="section-header">
-      <h3>Преподаватели</h3>
-      <button class="filter-btn" @click="toggleFilters">⚙️</button>
-    </div>
-
     <transition name="fade">
       <div v-if="showFilters" class="filters">
         <!-- Кафедры -->
@@ -15,7 +9,11 @@
             <span>{{ showDepartments ? "▲" : "▼" }}</span>
           </div>
           <div v-if="showDepartments" class="dropdown-content">
-            <div v-for="dept in departments" :key="dept.id" class="checkbox-item">
+            <div
+              v-for="dept in departments"
+              :key="dept.id"
+              class="checkbox-item"
+            >
               <input
                 type="checkbox"
                 :id="'dept-' + dept.id"
@@ -76,10 +74,9 @@ const selectedGroups = ref([]);
 
 const filters = ref({
   firstName: "",
-  lastName: ""
+  lastName: "",
 });
 
-const toggleFilters = () => (showFilters.value = !showFilters.value);
 const toggleDepartments = () => (showDepartments.value = !showDepartments.value);
 const toggleGroups = () => (showGroups.value = !showGroups.value);
 
@@ -102,32 +99,17 @@ const applyFilters = () => {
     groups: selectedGroups.value,
     ...filters.value,
   };
-  console.log(payload);
   emit("apply-filters", payload);
 };
 </script>
 
 <style scoped>
 .filter-panel {
-  width: 200px;
   background: linear-gradient(to bottom, #b5dcf9, #e9f6ff);
   border-radius: 12px;
   padding: 10px;
   font-family: sans-serif;
   box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.filter-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
 }
 
 .filter-block {
@@ -161,8 +143,7 @@ const applyFilters = () => {
 }
 
 input[type="text"],
-input[type="checkbox"],
-select {
+input[type="checkbox"] {
   cursor: pointer;
 }
 

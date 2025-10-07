@@ -1,36 +1,53 @@
 <template>
-  <div class="app">
-    <div class="content">
-      <FilterPanel @apply-filters="onApplyFilters" />
-      <InstructorsTable :filters="appliedFilters" />
+  <div class="app-container">
+    <!-- Левая панель -->
+    <SidePanel
+      :section="currentSection"
+      @selectSection="currentSection = $event"
+      @apply-filters="onApplyFilters"
+    />
+
+    <!-- Правая область -->
+    <div class="content-area">
+      <component :is="currentComponent" :filters="appliedFilters" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from "vue";
-import FilterPanel from "./components/FilterPanel.vue";
+import { ref, computed } from "vue";
+import SidePanel from "./components/SidePanel.vue";
 import InstructorsTable from "./components/InstructorsTable.vue";
+import StudentsTable from "./components/StudentsTable.vue";
 
+const currentSection = ref("instructors");
 const appliedFilters = ref({});
 
-const onApplyFilters = (filters) => {
+const currentComponent = computed(() =>
+  currentSection.value === "instructors" ? InstructorsTable : StudentsTable
+);
+
+function onApplyFilters(filters) {
   appliedFilters.value = { ...filters };
-};
+}
 </script>
 
 <style scoped>
-.app {
+.app-container {
+  display: flex; /* ВАЖНО: горизонтальное расположение */
+  height: 100vh;
   background: linear-gradient(to bottom right, #e3f2fd, #bbdefb);
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  padding: 20px;
 }
 
-.content {
-  display: flex;
-  gap: 20px;
-  width: 80%;
+/* Левая панель фиксированной ширины */
+.app-container > *:first-child {
+  flex-shrink: 0;
+}
+
+/* Правая часть занимает всё оставшееся место */
+.content-area {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
 }
 </style>
