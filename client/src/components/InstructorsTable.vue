@@ -1,16 +1,29 @@
 <template>
   <div class="instructors-table">
-    <h3>Преподаватели</h3>
+    <div class="header-row">
+      <h3>Преподаватели</h3>
+
+      <!-- Кнопки действий -->
+      <div class="action-buttons">
+        <button class="hire-btn" @click="showAddModal = true">Нанять</button>
+        <button class="fire-btn" @click="fireSelected">Уволить</button>
+      </div>
+    </div>
 
     <div v-if="loading" class="loading">Загрузка...</div>
-    <div v-else-if="instructors.length === 0" class="no-data">
-      Нет данных
-    </div>
+    <div v-else-if="instructors.length === 0" class="no-data">Нет данных</div>
 
     <div v-else class="table-wrapper">
       <table>
         <thead>
           <tr>
+            <th class="checkbox-col">
+              <input
+                type="checkbox"
+                :checked="allSelected"
+                @change="toggleSelectAll"
+              />
+            </th>
             <th>Имя Фамилия</th>
             <th>Кафедра</th>
             <th>Группы</th>
@@ -18,6 +31,9 @@
         </thead>
         <tbody>
           <tr v-for="inst in instructors" :key="inst.id">
+            <td class="checkbox-col">
+              <input type="checkbox" v-model="selectedIds" :value="inst.id" />
+            </td>
             <td class="clickable" @click="openInstructor(inst.id)">
               {{ inst.first_name }} {{ inst.last_name }}
             </td>
@@ -28,60 +44,31 @@
       </table>
     </div>
 
-    <!-- Модальное окно -->
-    <transition name="fade">
-      <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-        <div class="modal-card">
-          <h3>Редактирование преподавателя</h3>
+    <!-- Модалка просмотра/редактирования преподавателя -->
+    <InstructorViewEdit
+      v-if="showModal"
+      :instructorId="selectedId"
+      @close="closeModal"
+      @updated="handleInstructorUpdated"
+    />
 
-          <div v-if="modalLoading" class="loading">Загрузка...</div>
-
-          <div v-else-if="form" class="instructor-card">
-            <div class="photo-block">
-              <div
-                v-if="photoPreview"
-                class="photo"
-                :style="{ backgroundImage: `url(${photoPreview})` }"
-              ></div>
-              <div v-else class="photo placeholder">Нет фото</div>
-
-              <input type="file" accept="image/*" @change="onPhotoSelected" />
-            </div>
-
-            <div class="info">
-              <label>Имя:</label>
-              <input v-model="form.first_name" type="text" />
-
-              <label>Фамилия:</label>
-              <input v-model="form.last_name" type="text" />
-
-              <label>Дата рождения:</label>
-              <input v-model="form.birth_date" type="date" />
-
-              <label>Дата приёма:</label>
-              <input v-model="form.employ_date" type="date" />
-
-              <label>ID кафедры:</label>
-              <input v-model.number="form.department_id" type="number" />
-            </div>
-
-            <div class="buttons">
-              <button class="save-btn" @click="applyUpdate">Применить</button>
-              <button class="close-btn" @click="closeModal">Отмена</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </transition>
+    <!-- ✅ Модалка добавления преподавателя -->
+    <AddPersonModal
+  v-if="showAddModal"
+  :visible="showAddModal"
+  type="instructor"
+  @close="showAddModal = false"
+  @save="handleInstructorAdded"
+/>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { onBalanceDone } from "@/websocket";
-import { getInstructors, getInstructorById, updateInstructor } from "@/api";
-
-let unsubscribe = null;
+import { getInstructors, deleteInstructor, addInstructor } from "@/api";
+import InstructorViewEdit from "./InstructorViewEdit.vue";
+import AddPersonModal from "./AddPersonModal.vue";
 
 const props = defineProps({
   filters: {
@@ -92,13 +79,14 @@ const props = defineProps({
 
 const instructors = ref([]);
 const loading = ref(false);
-
 const showModal = ref(false);
-const modalLoading = ref(false);
-const form = ref(null);
 const selectedId = ref(null);
-const photoPreview = ref(null);
+const selectedIds = ref([]);
+const showAddModal = ref(false);
 
+let unsubscribe = null;
+
+// 📥 Загрузка преподавателей
 const loadInstructors = async (filters = {}) => {
   loading.value = true;
   try {
@@ -110,6 +98,7 @@ const loadInstructors = async (filters = {}) => {
 
     const { data } = await getInstructors(params);
     instructors.value = data;
+    selectedIds.value = [];
   } catch (err) {
     console.error(err);
   } finally {
@@ -117,91 +106,92 @@ const loadInstructors = async (filters = {}) => {
   }
 };
 
-const openInstructor = async (id) => {
-  showModal.value = true;
-  modalLoading.value = true;
-  form.value = null;
-  photoPreview.value = null;
+const handleInstructorAdded = async () => {
+  alert("Преподаватель успешно добавлен!");
+  showAddModal.value = false;
+};
+
+
+// 🧍‍♂️ Просмотр/редактирование
+const openInstructor = (id) => {
   selectedId.value = id;
-
-  try {
-    const { data } = await getInstructorById(id);
-    form.value = {
-      first_name: data.first_name,
-      last_name: data.last_name,
-      birth_date: data.birth_date,
-      employ_date: data.employ_date,
-      department_id: data.department_id,
-      photo: data.photo,
-    };
-
-    if (data.photo) {
-      const byteArray = new Uint8Array(data.photo);
-      const blob = new Blob([byteArray], { type: "image/jpeg" });
-      photoPreview.value = URL.createObjectURL(blob);
-    }
-  } catch (err) {
-    console.error("Ошибка загрузки преподавателя:", err);
-  } finally {
-    modalLoading.value = false;
-  }
+  showModal.value = true;
 };
-
-const onPhotoSelected = (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    form.value.photo = e.target.result.split(",")[1]; // base64 без префикса
-    photoPreview.value = e.target.result;
-  };
-  reader.readAsDataURL(file);
-};
-
-const applyUpdate = async () => {
-  try {
-    const payload = {
-      first_name: form.value.first_name,
-      last_name: form.value.last_name,
-      birth_date: form.value.birth_date,
-      department_id: form.value.department_id,
-      photo: form.value.photo,
-    };
-
-    await updateInstructor(selectedId.value, payload);
-    alert("Данные преподавателя успешно обновлены!");
-    await loadInstructors(); // обновляем таблицу
-    closeModal();
-  } catch (err) {
-    console.error("Ошибка обновления преподавателя:", err);
-    alert("Ошибка при сохранении изменений");
-  }
-};
-
 const closeModal = () => {
   showModal.value = false;
-  form.value = null;
-  photoPreview.value = null;
+  selectedId.value = null;
+};
+const handleInstructorUpdated = async () => {
+  await loadInstructors(props.filters);
 };
 
+// ✅ Добавление нового преподавателя
+const handleAddInstructor = async (formData) => {
+  try {
+    await addInstructor(formData);
+    alert("Преподаватель успешно добавлен!");
+    showAddModal.value = false;
+    await loadInstructors(props.filters);
+  } catch (err) {
+    console.error(err);
+    alert("Ошибка при добавлении преподавателя.");
+  }
+};
+
+// 🔘 Выделение чекбоксов
+const allSelected = computed(
+  () =>
+    instructors.value.length > 0 &&
+    selectedIds.value.length === instructors.value.length
+);
+
+const toggleSelectAll = () => {
+  if (allSelected.value) selectedIds.value = [];
+  else selectedIds.value = instructors.value.map((i) => i.id);
+};
+
+// 🔥 Увольнение выбранных
+const fireSelected = async () => {
+  if (selectedIds.value.length === 0) {
+    alert("Выберите хотя бы одного преподавателя для увольнения.");
+    return;
+  }
+
+  if (!confirm("Вы действительно хотите уволить выбранных преподавателей?")) {
+    return;
+  }
+
+  const failed = [];
+  for (const id of selectedIds.value) {
+    const instructor = instructors.value.find((i) => i.id === id);
+    try {
+      await deleteInstructor(id);
+    } catch (err) {
+      failed.push(
+        `${instructor?.first_name || ""} ${instructor?.last_name || ""}`.trim()
+      );
+    }
+  }
+
+  if (failed.length > 0) {
+    alert(`Не удалось уволить: ${failed.join(", ")}`);
+  } else {
+    alert("Все выбранные преподаватели успешно уволены!");
+  }
+
+  await loadInstructors(props.filters);
+};
+
+// 🕓 Жизненный цикл
 onMounted(() => {
   loadInstructors();
-  unsubscribe = onBalanceDone(loadInstructors);
-});
+  unsubscribe = onBalanceDone(() => loadInstructors(props.filters));
 
+});
 onUnmounted(() => {
-  // Отписываемся при уничтожении компонента
   if (unsubscribe) unsubscribe();
 });
-
-watch(
-  () => props.filters,
-  (newFilters) => {
-    loadInstructors(newFilters);
-  },
-  { deep: true }
-);
+watch(() => props.filters, loadInstructors, { deep: true });
 </script>
 
 <style scoped>
@@ -212,6 +202,45 @@ watch(
   padding: 16px;
   box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.hire-btn,
+.fire-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.hire-btn {
+  background: #4caf50;
+}
+.hire-btn:hover {
+  background: #43a047;
+  transform: scale(1.05);
+}
+
+.fire-btn {
+  background: #f44336;
+}
+.fire-btn:hover {
+  background: #e53935;
+  transform: scale(1.05);
 }
 
 .table-wrapper {
@@ -229,11 +258,24 @@ th {
   background: #e3f2fd;
   padding: 8px;
   border-bottom: 1px solid #ccc;
+  text-align: left;
 }
 
 td {
   padding: 8px;
   border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.checkbox-col {
+  width: 40px;
+  text-align: center;
+}
+
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 .clickable {
@@ -245,117 +287,10 @@ td {
   color: #0d47a1;
 }
 
-/* --- Модалка --- */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  width: 380px;
-  max-width: 90%;
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
-}
-
-.instructor-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.photo-block {
-  width: 150px;
-  height: 150px;
-  margin-bottom: 10px;
-}
-
-.photo {
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-  border-radius: 50%;
-  border: 2px solid #ccc;
-}
-
-.placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f0f0f0;
-  color: #888;
-  border-radius: 50%;
-}
-
-.info {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-label {
-  font-size: 14px;
-  color: #333;
-}
-
-input {
-  width: 100%;
-  padding: 6px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-}
-
-.buttons {
-  display: flex;
-  gap: 10px;
-  margin-top: 15px;
-}
-
-.save-btn {
-  flex: 1;
-  background: #4caf50;
-  color: white;
-  border: none;
-  padding: 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-}
-.save-btn:hover {
-  background: #43a047;
-}
-
-.close-btn {
-  flex: 1;
-  background: #f44336;
-  color: white;
-  border: none;
-  padding: 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-}
-.close-btn:hover {
-  background: #e53935;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: all 0.3s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
+.loading,
+.no-data {
+  padding: 10px;
+  text-align: center;
+  color: #777;
 }
 </style>

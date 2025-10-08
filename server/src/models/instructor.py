@@ -13,6 +13,7 @@ class Instructor(Base):
     birth_date: Mapped[date]
     employ_date: Mapped[date] = mapped_column(Date, default=date.today(), server_default=func.current_date())
     photo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    photo_mime: Mapped[str | None] = mapped_column(nullable=True)  # тип файла фото
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"))
 
     department: Mapped["Department"] = relationship("Department", back_populates="instructors")

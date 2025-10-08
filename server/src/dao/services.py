@@ -1,10 +1,12 @@
 """Файл с балансирующей функцией и дополнительной логикой для crud"""
+import asyncio
 from math import ceil
+
+from fastapi import WebSocket
 
 from server.src.api.groups.dao import GroupDAO
 from server.src.api.instructors.dao import InstructorDAO
 from server.src.api.students.dao import StudentDAO
-from fastapi import WebSocket
 
 
 async def is_department_available(session, department_id: int) -> bool:
@@ -50,6 +52,8 @@ class Balancer:
         A = ceil(students_in_dep_num / self._MAX_STUDENTS_IN_GROUP)
         B = min(students_in_dep_num, instructors_in_dep_num)
         group_num = max(A, B)
+        if not group_num:
+            return 0, 0, 0  # случай когда нет студентов но есть преподаватели
         mean_student_num_in_group = ceil(students_in_dep_num / group_num)
         mean_group_num_per_instructor = ceil(group_num / instructors_in_dep_num)
         return group_num, mean_student_num_in_group, mean_group_num_per_instructor
@@ -57,8 +61,6 @@ class Balancer:
     def balance(self, sync_session, department_id: int) -> None:
         with sync_session.begin():
             instructors, students, groups = self._fetch_data(sync_session, department_id)
-            if not students:  # чтобы не делить на 0
-                return None
 
             group_num, mean_student_num_in_group, mean_group_num_per_instructor = self._get_group_distribution(
                 len(instructors), len(students))
@@ -73,7 +75,7 @@ class Balancer:
 
             self._balance_students(students, groups, mean_student_num_in_group)
             self._balance_instructors(instructors, groups, mean_group_num_per_instructor)
-            websockets_manager.broadcast("balance_done")
+            asyncio.run(websockets_manager.broadcast("balance_done"))
 
     @staticmethod
     def _balance_students(students, groups, mean_student_num_in_group):

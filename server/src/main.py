@@ -1,11 +1,12 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from server.src.dao.services import websockets_manager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from server.src.api.instructors.router import instructors_route
-from server.src.api.students.router import students_route
+
 from server.src.api.departments.router import departments_route
 from server.src.api.groups.router import groups_route
+from server.src.api.instructors.router import instructors_route
+from server.src.api.students.router import students_route
+from server.src.dao.services import websockets_manager
 
 app = FastAPI()
 

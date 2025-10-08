@@ -8,9 +8,25 @@ services:
       POSTGRES_PASSWORD: mypassword # пароль
       POSTGRES_DB: mydatabase       # имя базы
     ports:
-      - "5433:5432"   # пробрасываем порт: хост:контейнер
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data  # сохраняем данные в томе
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U myuser -d mydatabase" ]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: fastapi_server
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
 
   client:
     build:
@@ -23,6 +39,8 @@ services:
       - /app/node_modules
     stdin_open: true
     tty: true
+    depends_on:
+      - server
 
 volumes:
   postgres_data:

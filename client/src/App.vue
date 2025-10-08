@@ -15,7 +15,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
+import { connectWebSocket } from "@/websocket";
 import SidePanel from "./components/SidePanel.vue";
 import InstructorsTable from "./components/InstructorsTable.vue";
 import StudentsTable from "./components/StudentsTable.vue";
@@ -30,6 +31,11 @@ const currentComponent = computed(() =>
 function onApplyFilters(filters) {
   appliedFilters.value = { ...filters };
 }
+
+onMounted(() => {
+  connectWebSocket();
+});
+
 </script>
 
 <style scoped>

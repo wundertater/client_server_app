@@ -1,13 +1,19 @@
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.src.api.students.dao import StudentDAO
-from server.src.api.students.schema import FilterStudents, SStudent, SStudentUpd, StudentRead
+from server.src.api.students.schema import (
+    FilterStudents,
+    SDepartmentOut,
+    SStudent,
+    SStudentsOut,
+    SStudentUpd,
+    StudentRead,
+)
 from server.src.dao.services import balancer, is_department_available
 from server.src.database import get_async_session, get_sync_session
-from server.src.api.students.schema import SStudentsOut, SDepartmentOut
 
 students_route = APIRouter(prefix="/students")
 
@@ -38,8 +44,8 @@ async def get_student_by_id(
     student = await StudentDAO.find_one_or_none_by_id(session, student_id)
     if not student:
         raise HTTPException(status_code=404, detail="Студент не найден")
-    return student
 
+    return StudentRead.model_validate(student, from_attributes=True)
 
 @students_route.post("/add", summary="Добавление студента")
 async def add_student(
@@ -56,8 +62,9 @@ async def add_student(
             )
         added = await StudentDAO.add(session, **student.model_dump())
         if added:
+            await session.refresh(added)
             background_tasks.add_task(balancer.balance, sync_session, added.department_id)
-            return {"message": "Студент успешно добавлен!", "student": student}
+            return {"message": "Студент успешно добавлен!", "id": added.id}
         else:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -128,3 +135,32 @@ async def delete_student(
             raise HTTPException(status_code=404, detail="Ошибка при отчислении")
         background_tasks.add_task(balancer.balance, sync_session, department_id)
         return {"message": "Студент отчислен"}
+
+
+@students_route.post("/{student_id}/photo", summary="Загрузить фото студента")
+async def upload_photo(
+        student_id: int,
+        file: UploadFile = File(...),
+        session: AsyncSession = Depends(get_async_session),
+):
+    student = await StudentDAO.find_one_or_none_by_id(session, student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Студент не найден")
+
+    contents = await file.read()
+    student.photo_mime = file.content_type
+    student.photo = contents
+    await session.commit()
+    return {"message": "Фото успешно загружено"}
+
+
+@students_route.get("/{student_id}/photo", summary="Получить фото студента")
+async def get_photo(
+        student_id: int,
+        session: AsyncSession = Depends(get_async_session)
+):
+    student = await StudentDAO.find_one_or_none_by_id(session, student_id)
+    if not student or not student.photo:
+        raise HTTPException(status_code=404, detail="Фото не найдено")
+
+    return Response(content=student.photo, media_type=student.photo_mime or "image/jpeg")

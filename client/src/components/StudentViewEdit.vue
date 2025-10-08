@@ -2,12 +2,12 @@
   <transition name="fade">
     <div class="modal-overlay" @click.self="emit('close')">
       <div class="modal-card">
-        <h3>Редактирование преподавателя</h3>
+        <h3>Карточка студента</h3>
 
         <div v-if="loading" class="loading">Загрузка...</div>
 
-        <div v-else-if="form" class="instructor-card">
-          <!-- Фото -->
+        <div v-else-if="form" class="student-card">
+          <!-- 🖼 Фото -->
           <div class="photo-block">
             <div
               v-if="photoPreview"
@@ -19,7 +19,7 @@
             <input type="file" accept="image/*" @change="onPhotoSelected" />
           </div>
 
-          <!-- Основные поля -->
+          <!-- 👤 Основные данные -->
           <div class="info">
             <label>Имя:</label>
             <input v-model="form.first_name" type="text" />
@@ -30,8 +30,8 @@
             <label>Дата рождения:</label>
             <input v-model="form.birth_date" type="date" />
 
-            <label>Дата приёма:</label>
-            <input v-model="form.employ_date" type="date" />
+            <label>Дата зачисления:</label>
+            <input v-model="form.enroll_date" type="date" />
 
             <label>Кафедра:</label>
             <select v-model.number="form.department_id">
@@ -46,9 +46,39 @@
             </select>
           </div>
 
-          <!-- Кнопки -->
+          <!-- 📊 Таблица оценок -->
+          <div class="marks-section">
+            <h4>Оценки по предметам</h4>
+            <table class="marks-table">
+              <thead>
+                <tr>
+                  <th>Предмет</th>
+                  <th>Оценка</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(item, index) in form.student_subjects"
+                  :key="item.subject.id"
+                >
+                  <td>{{ item.subject.name }}</td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      v-model.number="form.student_subjects[index].mark"
+                      placeholder="Введите оценку"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 🔘 Кнопки -->
           <div class="buttons">
-            <button class="save-btn" @click="applyUpdate">Применить</button>
+            <button class="save-btn" @click="applyUpdate">Сохранить</button>
             <button class="close-btn" @click="emit('close')">Отмена</button>
           </div>
         </div>
@@ -60,19 +90,20 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import {
-  getInstructorById,
-  updateInstructor,
-  getInstructorPhoto,
-  uploadInstructorPhoto,
+  getStudentById,
+  updateStudent,
+  getStudentPhoto,
+  uploadStudentPhoto,
   getDepartments,
 } from "@/api";
 
 const props = defineProps({
-  instructorId: {
+  studentId: {
     type: Number,
     required: true,
   },
 });
+
 const emit = defineEmits(["close", "updated"]);
 
 const form = ref(null);
@@ -81,22 +112,22 @@ const photoPreview = ref(null);
 const selectedPhoto = ref(null);
 const departments = ref([]);
 
-// === Загрузка данных преподавателя ===
-const loadInstructor = async () => {
+// === Загрузка данных студента ===
+const loadStudent = async () => {
   loading.value = true;
   try {
-    const { data } = await getInstructorById(props.instructorId);
+    const { data } = await getStudentById(props.studentId);
     form.value = { ...data };
 
     // 📸 загружаем фото отдельно
     try {
-      const photoBlob = await getInstructorPhoto(props.instructorId);
+      const photoBlob = await getStudentPhoto(props.studentId);
       photoPreview.value = URL.createObjectURL(photoBlob);
     } catch {
       photoPreview.value = null;
     }
   } catch (err) {
-    console.error("Ошибка загрузки преподавателя:", err);
+    console.error("Ошибка загрузки студента:", err);
   } finally {
     loading.value = false;
   }
@@ -128,35 +159,42 @@ const onPhotoSelected = (e) => {
 // === Сохранение изменений ===
 const applyUpdate = async () => {
   try {
+    const marksPayload = {};
+    for (const item of form.value.student_subjects) {
+      marksPayload[item.subject.id] = item.mark ?? 0;
+    }
+
     const payload = {
       first_name: form.value.first_name,
       last_name: form.value.last_name,
       birth_date: form.value.birth_date,
-      employ_date: form.value.employ_date,
+      enroll_date: form.value.enroll_date,
       department_id: form.value.department_id,
+      marks: marksPayload,
     };
 
-    await updateInstructor(props.instructorId, payload);
+    await updateStudent(props.studentId, payload);
 
     // если выбрано новое фото — обновляем его отдельно
     if (selectedPhoto.value) {
-      await uploadInstructorPhoto(props.instructorId, selectedPhoto.value);
+      await uploadStudentPhoto(props.studentId, selectedPhoto.value);
     }
 
-    alert("✅ Данные преподавателя успешно обновлены!");
+    alert("✅ Данные студента успешно обновлены!");
     emit("updated");
     emit("close");
   } catch (err) {
-    console.error("Ошибка обновления преподавателя:", err);
+    console.error("Ошибка обновления студента:", err);
     alert("Ошибка при сохранении изменений");
   }
 };
 
 onMounted(async () => {
   await loadDepartments();
-  await loadInstructor();
+  await loadStudent();
 });
 </script>
+
 
 <style scoped>
 .modal-overlay {
@@ -173,12 +211,12 @@ onMounted(async () => {
   background: white;
   border-radius: 12px;
   padding: 20px;
-  width: 380px;
-  max-width: 90%;
+  width: 480px;
+  max-width: 95%;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
 }
 
-.instructor-card {
+.student-card {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -186,8 +224,8 @@ onMounted(async () => {
 }
 
 .photo-block {
-  width: 150px;
-  height: 150px;
+  width: 140px;
+  height: 140px;
   margin-bottom: 10px;
 }
 
@@ -226,6 +264,36 @@ input {
   padding: 6px;
   border: 1px solid #ccc;
   border-radius: 6px;
+}
+
+.marks-section {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.marks-section h4 {
+  margin-bottom: 6px;
+  text-align: left;
+  color: #333;
+}
+
+.marks-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.marks-table th,
+.marks-table td {
+  border: 1px solid #ddd;
+  padding: 6px;
+  text-align: left;
+}
+
+.marks-table input {
+  width: 100%;
+  padding: 4px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
 }
 
 .buttons {
@@ -271,4 +339,32 @@ input {
   opacity: 0;
   transform: translateY(-10px);
 }
+
+.loading {
+  text-align: center;
+  color: #777;
+}
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  overflow-y: auto; /* чтобы при переполнении появлялся скролл */
+  padding: 20px;    /* отступы от краев экрана */
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  width: 380px;
+  max-width: 90%;
+  max-height: 90vh; /* ограничиваем высоту до 90% окна */
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
+  overflow-y: auto; /* прокрутка внутри модалки */
+}
+
 </style>

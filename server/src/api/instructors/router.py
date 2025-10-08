@@ -1,12 +1,13 @@
 """Файл содержит endpoints относящиеся к instructors"""
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.src.api.instructors.dao import InstructorDAO
 from server.src.api.instructors.schema import (
     FilterInstructors,
+    InstructorRead,
     SDepartmentOut,
     SInstructor,
     SInstructorsOut,
@@ -36,7 +37,7 @@ async def get_instructors(
     ]
 
 
-@instructors_route.get("/{instructor_id}", summary="Получить 1 инструктора по id")
+@instructors_route.get("/{instructor_id}", summary="Получить одного инструктора по id", response_model=InstructorRead)
 async def get_instructor_by_id(
         instructor_id: int,
         session: AsyncSession = Depends(get_async_session)
@@ -44,7 +45,8 @@ async def get_instructor_by_id(
     instructor = await InstructorDAO.find_one_or_none_by_id(session, instructor_id)
     if not instructor:
         raise HTTPException(status_code=404, detail="Инструктор не найден")
-    return instructor
+
+    return InstructorRead.from_orm(instructor)
 
 
 @instructors_route.post("/add")
@@ -57,8 +59,9 @@ async def add_instructor(
     async with session.begin():
         added = await InstructorDAO.add(session, **instructor.model_dump())
         if added:
+            await session.refresh(added)
             background_tasks.add_task(balancer.balance, sync_session, added.department_id)
-            return {"message": "Инструктор успешно добавлен!", "instructors": instructor}
+            return {"message": "Инструктор успешно добавлен!", "id": added.id}
         else:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -122,3 +125,32 @@ async def delete_instructor(
             raise HTTPException(status_code=404, detail="Ошибка при увольнении")
         background_tasks.add_task(balancer.balance, sync_session, department_id)
         return {"message": "Инструктор уволен"}
+
+
+@instructors_route.post("/{instructor_id}/photo", summary="Загрузить фото инструктора")
+async def upload_photo(
+        instructor_id: int,
+        file: UploadFile = File(...),
+        session: AsyncSession = Depends(get_async_session),
+):
+    instructor = await InstructorDAO.find_one_or_none_by_id(session, instructor_id)
+    if not instructor:
+        raise HTTPException(status_code=404, detail="Инструктор не найден")
+
+    contents = await file.read()
+    instructor.photo_mime = file.content_type
+    instructor.photo = contents
+    await session.commit()
+    return {"message": "Фото успешно загружено"}
+
+
+@instructors_route.get("/{instructor_id}/photo", summary="Получить фото инструктора")
+async def get_photo(
+        instructor_id: int,
+        session: AsyncSession = Depends(get_async_session)
+):
+    instructor = await InstructorDAO.find_one_or_none_by_id(session, instructor_id)
+    if not instructor or not instructor.photo:
+        raise HTTPException(status_code=404, detail="Фото не найдено")
+
+    return Response(content=instructor.photo, media_type=instructor.photo_mime or "image/jpeg")

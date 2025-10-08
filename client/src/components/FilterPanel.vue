@@ -58,8 +58,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import { getDepartments, getGroups } from "@/api";
+import { onBalanceDone } from "@/websocket";
 
 const showFilters = ref(true);
 const showDepartments = ref(true);
@@ -80,6 +81,19 @@ const filters = ref({
 const toggleDepartments = () => (showDepartments.value = !showDepartments.value);
 const toggleGroups = () => (showGroups.value = !showGroups.value);
 
+// === 🔁 Обновление групп ===
+async function reloadGroups() {
+  try {
+    const res = await getGroups();
+    groups.value = res.data;
+    console.log("Группы обновлены:", groups.value);
+  } catch (err) {
+    console.error("Ошибка при обновлении групп:", err);
+  }
+}
+
+let unsubscribe = null;
+
 onMounted(async () => {
   try {
     const [deptRes, groupRes] = await Promise.all([
@@ -91,6 +105,17 @@ onMounted(async () => {
   } catch (err) {
     console.error("Ошибка загрузки данных:", err);
   }
+
+  // Подписываемся на websocket-событие
+  unsubscribe = onBalanceDone(() => {
+    console.log("Сообщение по websocket: обновляем группы...");
+    reloadGroups();
+  });
+});
+
+onBeforeUnmount(() => {
+  // Отписываемся от сокета, чтобы не было утечек
+  if (unsubscribe) unsubscribe();
 });
 
 const applyFilters = () => {

@@ -51,7 +51,7 @@ class StudentDAO(BaseDAO):
         # 1. Создаём студента
         new_student = cls.model(**values)
         session.add(new_student)
-        await session.flush()  # ⚡ получает ID нового студента
+        await session.flush()
 
         # 2. Получаем все предметы кафедры студента
         department_id = new_student.department_id

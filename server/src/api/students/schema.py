@@ -15,7 +15,6 @@ class SStudent(BaseModel):
     first_name: str
     birth_date: date
     department_id: int
-    photo: bytes | None = None
 
 
 class SDepartmentOut(BaseModel):
@@ -28,7 +27,7 @@ class SStudentsOut(BaseModel):
     first_name: str
     last_name: str
     department: SDepartmentOut
-    group: int
+    group: int | None
 
 
 class SStudentUpd(BaseModel):
@@ -36,7 +35,6 @@ class SStudentUpd(BaseModel):
     first_name: str | None = None
     birth_date: date | None = None
     department_id: int | None = None
-    photo: bytes | None = None
     marks: dict[int, int | None] | None = None  # {subject_id: mark}
 
 
@@ -45,7 +43,7 @@ class SubjectBase(BaseModel):
     name: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class SubjectWithMark(BaseModel):
@@ -53,7 +51,7 @@ class SubjectWithMark(BaseModel):
     mark: int | None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class StudentRead(BaseModel):
@@ -65,6 +63,8 @@ class StudentRead(BaseModel):
     group_id: int | None
     department_id: int
     student_subjects: list[SubjectWithMark]
+    photo_url: str | None = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
