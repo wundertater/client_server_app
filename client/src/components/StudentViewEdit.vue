@@ -65,9 +65,11 @@
                   <td>
                     <input
                       type="number"
-                      min="0"
-                      max="100"
-                      v-model.number="form.student_subjects[index].mark"
+                      min="1"
+                      max="5"
+                      step="1"
+                      :value="form.student_subjects[index].mark ?? ''"
+                      @input="onMarkInput($event, index)"
                       placeholder="Введите оценку"
                     />
                   </td>
@@ -111,6 +113,27 @@ const loading = ref(false);
 const photoPreview = ref(null);
 const selectedPhoto = ref(null);
 const departments = ref([]);
+const originalData = ref(null);
+
+// оценки
+const onMarkInput = (event, index) => {
+  const value = event.target.value;
+  if (value === '') {
+    form.value.student_subjects[index].mark = null; // пустое значение
+    return;
+  }
+  let num = Number(value);
+  if (isNaN(num)) {
+    form.value.student_subjects[index].mark = null;
+    return;
+  }
+  // Ограничиваем диапазон 1–5
+  if (num < 1) num = 1;
+  if (num > 5) num = 5;
+  form.value.student_subjects[index].mark = num;
+};
+
+
 
 // === Загрузка данных студента ===
 const loadStudent = async () => {
@@ -118,6 +141,7 @@ const loadStudent = async () => {
   try {
     const { data } = await getStudentById(props.studentId);
     form.value = { ...data };
+    originalData.value = JSON.parse(JSON.stringify(data)); // глубокая копия
 
     // 📸 загружаем фото отдельно
     try {
@@ -159,11 +183,17 @@ const onPhotoSelected = (e) => {
 // === Сохранение изменений ===
 const applyUpdate = async () => {
   try {
+  // если выбрано новое фото — обновляем его отдельно
+    if (selectedPhoto.value) {
+      await uploadStudentPhoto(props.studentId, selectedPhoto.value);
+    }
+  if (JSON.stringify(form.value) === JSON.stringify(originalData.value)) {
+      return;  // не засоряем сервер лишними запросами при отсутствии обновленных данных
+    }
     const marksPayload = {};
     for (const item of form.value.student_subjects) {
-      marksPayload[item.subject.id] = item.mark ?? 0;
+      marksPayload[item.subject.id] = item.mark !== '' && item.mark != null ? item.mark : null;
     }
-
     const payload = {
       first_name: form.value.first_name,
       last_name: form.value.last_name,
@@ -175,17 +205,11 @@ const applyUpdate = async () => {
 
     await updateStudent(props.studentId, payload);
 
-    // если выбрано новое фото — обновляем его отдельно
-    if (selectedPhoto.value) {
-      await uploadStudentPhoto(props.studentId, selectedPhoto.value);
-    }
-
     alert("✅ Данные студента успешно обновлены!");
     emit("updated");
     emit("close");
   } catch (err) {
     console.error("Ошибка обновления студента:", err);
-    alert("Ошибка при сохранении изменений");
   }
 };
 

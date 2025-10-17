@@ -126,7 +126,6 @@ const handleSave = async () => {
     close();
   } catch (err) {
     console.error("Ошибка при сохранении:", err);
-    alert("Ошибка при сохранении данных");
   }
 };
 

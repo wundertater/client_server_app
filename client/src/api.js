@@ -4,6 +4,39 @@ const api = axios.create({
   baseURL: "http://localhost:8000",
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    const url = error.config?.url;
+    const data = error.response?.data;
+
+    // === Игнорируем 404 при запросе фото ===
+    if (url?.includes("/photo") && status === 404) {
+      // Просто возвращаем Promise.reject без alert
+      return Promise.reject(error);
+    }
+
+    // === Общая обработка остальных ошибок ===
+    let message = "Ошибка при запросе";
+
+    if (data) {
+      if (typeof data.detail === "string") {
+        message = data.detail;
+      } else if (Array.isArray(data.detail)) {
+        message = data.detail
+          .map((err) => `${err.loc?.slice(-1)[0]}: ${err.msg}`)
+          .join("\n");
+      }
+    }
+
+    alert(message);
+    return Promise.reject(error);
+  }
+);
+
+
+
 // === Общие ===
 export const getDepartments = () => api.get("/departments");
 export const getGroups = () => api.get("/groups");

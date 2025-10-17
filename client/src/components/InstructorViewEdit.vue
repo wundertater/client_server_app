@@ -80,6 +80,7 @@ const loading = ref(false);
 const photoPreview = ref(null);
 const selectedPhoto = ref(null);
 const departments = ref([]);
+const originalData = ref(null);
 
 // === Загрузка данных преподавателя ===
 const loadInstructor = async () => {
@@ -87,6 +88,7 @@ const loadInstructor = async () => {
   try {
     const { data } = await getInstructorById(props.instructorId);
     form.value = { ...data };
+    originalData.value = JSON.parse(JSON.stringify(data)); // глубокая копия
 
     // 📸 загружаем фото отдельно
     try {
@@ -128,6 +130,14 @@ const onPhotoSelected = (e) => {
 // === Сохранение изменений ===
 const applyUpdate = async () => {
   try {
+      // если выбрано новое фото — обновляем его отдельно
+    if (selectedPhoto.value) {
+      await uploadInstructorPhoto(props.instructorId, selectedPhoto.value);
+    }
+
+  if (JSON.stringify(form.value) === JSON.stringify(originalData.value)) {
+      return;  // не засоряем сервер лишними запросами при отсутствии обновленных данных
+    }
     const payload = {
       first_name: form.value.first_name,
       last_name: form.value.last_name,
@@ -138,17 +148,11 @@ const applyUpdate = async () => {
 
     await updateInstructor(props.instructorId, payload);
 
-    // если выбрано новое фото — обновляем его отдельно
-    if (selectedPhoto.value) {
-      await uploadInstructorPhoto(props.instructorId, selectedPhoto.value);
-    }
-
     alert("✅ Данные преподавателя успешно обновлены!");
     emit("updated");
     emit("close");
   } catch (err) {
     console.error("Ошибка обновления преподавателя:", err);
-    alert("Ошибка при сохранении изменений");
   }
 };
 

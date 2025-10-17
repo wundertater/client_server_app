@@ -1,6 +1,17 @@
 from datetime import date
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def validate_birth_date(value: date) -> date:
+    """Проверка корректности даты рождения."""
+    today = date.today()
+    min_date = date(1900, 1, 1)
+    if value > today:
+        raise ValueError("Дата рождения не может быть в будущем")
+    if value < min_date:
+        raise ValueError("Дата рождения слишком старая (должна быть после 1900 года)")
+    return value
 
 
 class FilterInstructors(BaseModel):
@@ -16,12 +27,22 @@ class SInstructor(BaseModel):
     birth_date: date
     department_id: int
 
+    @field_validator("birth_date")
+    def validate_birth_date(cls, value: date) -> date:
+        return validate_birth_date(value)
+
 
 class SInstructorUpd(BaseModel):
     last_name: str | None = None
     first_name: str | None = None
     birth_date: date | None = None
     department_id: int | None = None
+
+    @field_validator("birth_date")
+    def validate_birth_date(cls, value: date | None) -> date | None:
+        # Проверяем только если значение указано
+        if value is not None:
+            return validate_birth_date(value)
 
 
 class SDepartmentOut(BaseModel):

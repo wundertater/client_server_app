@@ -95,7 +95,7 @@ async def update_instructor(
                 # Балансируем новый департамент и прошлый
                 background_tasks.add_task(balancer.balance, sync_session, department_id)
                 background_tasks.add_task(balancer.balance, sync_session, upd_data.department_id)
-            return {"message": "Данные инструктора успешно обновлены!", "instructors": updated}
+            return {"message": "Данные инструктора успешно обновлены!"}
         else:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
